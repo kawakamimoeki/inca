@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'bundler/setup'
+require 'benchmark'
+require 'rblineprof'
+require 'rblineprof-report'
+require 'mquve'
+require 'kramdown'
+require 'redcarpet'
+require 'commonmarker'
+
+files = Dir.glob(File.join('examples', '**', '*.md'))
+
+RUNS = 10
+
+files.each do |file|
+  data = File.read(file)
+  Benchmark.bmbm do |benchmark|
+    puts
+    puts "Test using file #{file} and #{RUNS} runs"
+    benchmark.report("mquve #{Mquve::VERSION}") do
+      html = ''
+      RUNS.times { html = Mquve.to_html(data) }
+      html_file = File.join('examples', 'html', "#{File.basename(file).split('.')[0]}_mquve.html")
+      File.open(html_file, 'w+') do |f|
+        f.write html
+      end
+    end
+    benchmark.report("kramdown #{Kramdown::VERSION}") do
+      html = ''
+      RUNS.times { html = Kramdown::Document.new(data).to_html }
+      html_file = File.join('examples', 'html', "#{File.basename(file).split('.')[0]}_kramdown.html")
+      File.open(html_file, 'w+') do |f|
+        f.write html
+      end
+    end
+    benchmark.report("redcarpet #{Redcarpet::VERSION}") do
+      html = ''
+      RUNS.times { html = Redcarpet::Markdown.new(Redcarpet::Render::HTML).render(data) }
+      html_file = File.join('examples', 'html', "#{File.basename(file).split('.')[0]}_redcarpet.html")
+      File.open(html_file, 'w+') do |f|
+        f.write html
+      end
+    end
+    benchmark.report("commonmarker #{Commonmarker::VERSION}") do
+      html = ''
+      RUNS.times { html = Commonmarker.to_html(data) }
+      html_file = File.join('examples', 'html', "#{File.basename(file).split('.')[0]}_commonmarker.html")
+      File.open(html_file, 'w+') do |f|
+        f.write html
+      end
+    end
+  end
+end

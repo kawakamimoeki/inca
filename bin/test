@@ -1,0 +1,142 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'bundler/setup'
+require 'json'
+require 'benchmark'
+require 'mquve'
+require 'rainbow'
+require 'diffy'
+require 'dry/cli'
+
+module Test
+  module CLI
+    module Commands
+      extend Dry::CLI::Registry
+      class Exec < Dry::CLI::Command
+        desc 'Execute test'
+
+        option :section, type: :string, require: false
+        option :example, type: :string, require: false
+
+        def call(section: nil, example: nil, **)
+          cases = File.read(File.join('examples', 'cases.json'))
+          cases = JSON.parse(cases)
+          targets = cases
+
+          if example
+            first, last = example.split(':').map(&:to_i)
+            targets = last ? targets.filter { _1['example'] >= first && _1['example'] <= last } : targets.filter { _1['example'] == first }
+          end
+
+          targets = targets.filter { _1['section'] == section } if section && !section.include?(':')
+
+          if section&.include?(':')
+            sections = Sections.new.sections.keys.uniq
+            sections = sections[sections.index(section.split(':').first)..sections.index(section.split(':').last)]
+            targets = targets.filter { sections.include? _1['section'] }
+          end
+
+          skip_sections = ['Entity and numeric character references']
+          targets = targets.reject { skip_sections.include?(_1['section']) }
+          skip_examples = [206]
+          targets = targets.reject { skip_examples.include?(_1['example']) }
+
+          time = 0
+          failures = []
+
+          puts "Run options: #{example || section}"
+          puts "\n"
+
+          targets.each do |target|
+            html = ''
+            time += Benchmark.realtime do
+              html = Mquve.to_html(target['markdown'])
+            end
+            diff = Diffy::Diff.new(target['html'], html)
+            if diff.to_s.empty?
+              print Rainbow('.').green
+              next
+            end
+            print Rainbow('*').red
+            failures << target
+          rescue StandardError => e
+            failures << target
+            puts e
+            puts e.backtrace
+          end
+
+          puts "\n"
+          puts "\n"
+
+          failures.each do |target|
+            puts "#{target['section']}(#{target['example']}):"
+            puts "\n"
+            puts Rainbow('Markdown:').faint
+            pp target['markdown']
+            puts "\n"
+            puts Rainbow('HTML:').faint
+            html = ''
+            time += Benchmark.realtime do
+              html = Mquve.to_html(target['markdown'])
+            end
+            diff = Diffy::Diff.new(target['html'], html)
+            puts diff.to_s.lines.map { _1.start_with?('-') ? Rainbow(_1).red : Rainbow(_1).blue }.join
+          end
+
+          puts "\n"
+          puts "Finished in #{time.round(5)} seconds"
+          if failures.length.positive?
+            puts Rainbow("#{targets.length} example#{targets.length > 1 ? 's' : ''}, #{failures.length} failure#{failures.length > 1 ? 's' : ''}").red
+            exit false
+          else
+            puts Rainbow("#{targets.length} example#{targets.length > 1 ? 's' : ''}, 0 failure").green
+            exit
+          end
+        end
+      end
+
+      class Sections < Dry::CLI::Command
+        desc 'List section names'
+
+        def call
+          puts sections.map { |k, v| "#{k}: #{Rainbow("#{v.length} examples").faint}" }.join("\n")
+        end
+
+        def sections
+          cases = File.read(File.join('examples', 'cases.json'))
+          cases = JSON.parse(cases)
+          cases.map { _1['section'] }.group_by { _1 }
+        end
+      end
+
+      class Examples < Dry::CLI::Command
+        desc 'List examples'
+
+        option :section, type: :string, require: false
+
+        def call(section: nil)
+          cases = File.read(File.join('examples', 'cases.json'))
+          cases = JSON.parse(cases)
+          cases = cases.filter { _1['section'] == section } if section
+          cases.each do |c|
+            puts Rainbow("#{c['section']}(#{c['example']}):").underline
+            puts "\n"
+            puts Rainbow('Markdown:').faint
+            puts c['markdown']
+            puts "\n"
+            puts Rainbow('HTML:').faint
+            puts c['html']
+            puts "\n"
+          end
+        end
+      end
+
+      register 'exec', Exec
+      register 'sections', Sections
+      register 'examples', Examples
+    end
+  end
+end
+
+Dry::CLI.new(Test::CLI::Commands).call

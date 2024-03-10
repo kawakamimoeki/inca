@@ -1,0 +1,53 @@
+AllCops:
+  TargetRubyVersion: 3.0
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Lint/MixedRegexpCaptureTypes:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Layout/LineLength:
+  Enabled: false
+
+Style/RegexpLiteral:
+  Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
+Lint/MissingSuper:
+  Enabled: false
+
+UselessAssignment:
+  Enabled: false
+
+AccessorMethodName:
+  Enabled: false
+
+Naming/PredicateName:
+  Enabled: false
+
+Style/NestedModifier:
+  Enabled: false
+
+Metrics/BlockNesting:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
